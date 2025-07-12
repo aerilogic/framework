@@ -1,33 +1,35 @@
+import path from 'path';
+import { AeriCore } from './core.js';
+import { HttpModule, type HttpOptions } from './modules/http.js';
+import type { LogicInput, LogicBlock } from './types.js';
+
+// Re-export everything from types
+export * from './types.js';
+export { AeriCore } from './core.js';
+export { HttpModule } from './modules/http.js';
+
 export interface BootstrapOptions {
-  logic?: any;
+  logic?: LogicInput;
   config?: Record<string, any>;
+  http?: HttpOptions;
   modules?: Array<(core: AeriCore) => void | Promise<void>>;
 }
 
-export class AeriCore {
-  config: Record<string, any>;
-  logic: any[] = [];
-  constructor(config: Record<string, any> = {}) {
-    this.config = config;
-  }
-  getConfig<T = any>(key: string, defaultValue?: T): T {
-    return this.config[key] ?? defaultValue;
-  }
-}
-
-import path from 'path';
-
 export async function bootstrap(options: BootstrapOptions = {}) {
-  console.log('[Aeri][DEBUG][bootstrap] options:', JSON.stringify(options, (k, v) => (typeof v === 'function' ? '[Function]' : v), 2));
   const core = new AeriCore(options.config);
 
-  // Mostrar el estado inicial de core.logic y core.config
-  console.log('[Aeri][DEBUG][bootstrap] core.logic (init):', JSON.stringify(core.logic));
-  console.log('[Aeri][DEBUG][bootstrap] core.config (init):', JSON.stringify(core.config));
+  // Initialize HTTP by default (unless explicitly disabled)
+  const httpEnabled = options.http?.enabled !== false;
+  let httpModule: HttpModule | undefined;
+  
+  if (httpEnabled) {
+    httpModule = new HttpModule(core);
+    httpModule.initialize(options.http);
+  }
 
-  // Inicializar módulos si se especifican
+  // Initialize modules if specified
   if (Array.isArray(options.modules)) {
-    console.log('[Aeri][DEBUG][bootstrap] Inicializando módulos:', options.modules.length);
+    console.log(`[Aeri] Initializing ${options.modules.length} module(s)...`);
     for (const mod of options.modules) {
       if (typeof mod === 'function') {
         await mod(core);
@@ -36,15 +38,12 @@ export async function bootstrap(options: BootstrapOptions = {}) {
     console.log(`[Aeri] Loaded ${options.modules.length} module(s)`);
   }
 
-  // Cargar lógica de negocio si se especifica
+  // Load business logic if specified
   const logicConfig = options.logic;
-  console.log('[Aeri][DEBUG][bootstrap] logicConfig:', JSON.stringify(logicConfig, (k, v) => (typeof v === 'function' ? '[Function]' : v), 2));
   if (logicConfig && typeof logicConfig === 'object' && !Array.isArray(logicConfig)) {
     core.logic.push(logicConfig);
-    console.log('[Aeri][DEBUG][bootstrap] core.logic after push:', JSON.stringify(core.logic, (k, v) => (typeof v === 'function' ? '[Function]' : v), 2));
-    console.log('[Aeri] Loaded inline logic object');
   } else {
-    let logicFiles: any[] = [];
+    let logicFiles: (string | LogicBlock)[] = [];
     if (logicConfig !== undefined) {
       logicFiles = Array.isArray(logicConfig)
         ? logicConfig
@@ -52,7 +51,7 @@ export async function bootstrap(options: BootstrapOptions = {}) {
           ? [logicConfig]
           : [];
     } else {
-      // Buscar logic.ts, logic.js, logic/*.ts, logic/*.js
+      // Look for logic.ts, logic.js, logic/*.ts, logic/*.js
       const cwd = process.cwd();
       const fs = await import('fs');
       const candidates = [
@@ -64,7 +63,7 @@ export async function bootstrap(options: BootstrapOptions = {}) {
           logicFiles.push(`${cwd}/${file}`);
         }
       }
-      // Buscar archivos en logic/
+      // Look for files in logic/
       const logicDir = `${cwd}/logic`;
       if (fs.existsSync(logicDir) && fs.statSync(logicDir).isDirectory()) {
         const allFiles = fs.readdirSync(logicDir);
@@ -84,7 +83,7 @@ export async function bootstrap(options: BootstrapOptions = {}) {
         console.log('[Aeri] Loaded inline logic object');
       } else if (typeof logicItem === 'string') {
         try {
-          // Resolver path absoluto relativo al cwd del usuario
+          // Resolve absolute path relative to user's cwd
           const absPath = path.isAbsolute(logicItem)
             ? logicItem
             : path.resolve(process.cwd(), logicItem);
@@ -95,6 +94,17 @@ export async function bootstrap(options: BootstrapOptions = {}) {
           console.warn(`[Aeri] Could not load logic file ${logicItem}:`, err.message);
         }
       }
+    }
+  }
+
+  // Start HTTP server if enabled and logic with HTTP routes exists
+  if (httpEnabled && httpModule) {
+    const hasHttpRoutes = core.logic.some(logic => logic && logic._http);
+    if (hasHttpRoutes) {
+      console.log('[Aeri] Starting HTTP server...');
+      httpModule.startServer();
+    } else {
+      console.log('[Aeri] No HTTP routes found in logic, skipping HTTP server startup.');
     }
   }
 

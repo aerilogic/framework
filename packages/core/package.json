@@ -10,11 +10,18 @@
       "require": "./dist/index.js"
     }
   },
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "scripts": {
-    "build": "tsc -p ./tsconfig.json"
+    "clean": "rm -rf dist",
+    "build": "npm run clean && tsc -p ./tsconfig.json"
+  },
+  "dependencies": {
+    "express": "^5.1.0"
   },
   "devDependencies": {
+    "@types/express": "^5.0.3",
     "@types/node": "^24.0.4"
   }
 }

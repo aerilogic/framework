@@ -8,7 +8,7 @@ Aeri is a modular, lightweight microframework for microservices written in TypeS
 ## ⚡ Quick Installation
 
 ```bash
-npm install @aeri/core @aeri/http @aeri/rpc
+npm install @aeri/core
 ```
 
 ---
@@ -25,8 +25,8 @@ bootstrap();
 // logic/payments.ts
 export default {
   createPayment,
-  @rpc: ['createPayment'],
-  @http: {
+  _rpc: ['createPayment'],
+  _http: {
     createPayment: { method: 'post', path: '/payments' }
   }
 }
@@ -38,13 +38,7 @@ export default {
 
 | Module          | Brief Description                                        |
 | --------------  | ------------------------------------------------------- |
-| @aeri/core      | Bootstraps and loads logic/modules                      |
-| @aeri/http      | Automatic HTTP routes from `logic/`                     |
-| @aeri/rpc       | RPC between microservices via Redis                     |
-| @aeri/queues    | Enqueued jobs/workers                                   |
-| @aeri/events    | Asynchronous event system                               |
-| @aeri/scheduler | Cron-like scheduled tasks                               |
-| @aeri/logger    | Structured logging with Pino                            |
+| @aeri/core      | Complete microframework with HTTP, RPC, events, and more |
 
 ---
 
@@ -68,12 +62,12 @@ export default {
 ## 🚀 Main Features
 
 - Independent microservices that can communicate with each other
-- RPC between services (`@aeri/rpc`)
-- Automatic HTTP routes (`@aeri/http`)
-- Workers as regular functions (`@aeri/queues`)
-- Decoupled events (`@aeri/events`)
-- Scheduled tasks (`@aeri/scheduler`)
-- Efficient logger (`@aeri/logger` with Pino)
+- Built-in HTTP server with automatic routes
+- RPC between services (coming soon)
+- Workers as regular functions (coming soon)
+- Decoupled events (coming soon)
+- Scheduled tasks (coming soon)
+- Efficient structured logging (coming soon)
 - No need to write route, worker, or handler files
 
 ---
@@ -104,15 +98,15 @@ export default {
   createPayment,
   notifyUser,
 
-  @rpc: ['createPayment'],
-  @job: ['notifyUser'],
-  @events: {
+  _rpc: ['createPayment'],
+  _job: ['notifyUser'],
+  _events: {
     notifyUser: ['payment.completed']
   },
-  @http: {
+  _http: {
     createPayment: { method: 'post', path: '/payments', middlewares: ['auth'] }
   },
-  @schedule: {
+  _schedule: {
     cleanOldPayments: '0 3 * * *'
   }
 }
